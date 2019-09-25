@@ -8,7 +8,7 @@
 #  Author        : $Author$
 #  Created By    : Robert Heller
 #  Created       : Tue Sep 24 16:18:32 2019
-#  Last Modified : <190925.1227>
+#  Last Modified : <190925.1418>
 #
 #  Description	
 #
@@ -40,23 +40,28 @@
 #
 #*****************************************************************************
 
+package require snit
+package require ParseXML
+package require ZipArchive
+package require vfs::zip
+package require vfs::mk4
+package require Version
+
+set argv0 [file join [file dirname [info nameofexecutable]] [file rootname [file tail [info script]]]]
+
 ##
 #
 # @mainpage Introduction
-# This program generates "stripboards", solderable prototyping boards that have
-# strips of copper foil connecting groups of holes, generally on .1 inch 
-# (2.54mm) centers.  There are many such boards, ranging from ones that are
-# pad-per-hole (no actually strips) to ones with power buses and arranged with 
-# 2 to 6 hole long strips.  Some have patterns to take connectors and/or have
-# edge connector fingers.
 #
-# This program is not a GUI program. It is purely command line and in order to
-# use it, it is needful to know some basic Tcl.  The user creates a Tcl script
-# file that defines the board and its pattern on holes and copper.
+# I wrote this program to avoid the extreemly tedious process of hand creating
+# stripboards for use with fritzing.  Hopefully other people will find it 
+# useful as well.
+# 
+# The command line documentation is available on the @ref GenerateStripboard 
+# page. And the API documentation is available on the @ref APIPage page.  And
+# the license is available on the @ref Copying page.
 #
-# @defgroup GenerateStripboard Generate Stripboard
-# Create Stripboard part objects for Fritzing
-#
+# @page GenerateStripboard Generate Stripboard
 # @section SYNOPSIS SYNOPSIS
 #
 # GenerateStripboard [options] [scriptfiles...]
@@ -86,29 +91,55 @@
 #
 # One or more board script file.
 #
-# @section FritzingPartsSVGEditorAUTHOR AUTHOR
+# @section AUTHOR AUTHOR
 # Robert Heller \<heller\@deepsoft.com\>
 #
-# @page BoardGenApi Board Generation API
+# @defgroup APIPage Generate Stripboard 
 # @{
 
-package require snit
-package require ParseXML
-package require ZipArchive
-package require vfs::zip
-package require vfs::mk4
-package require Version
-
-set argv0 [file join [file dirname [info nameofexecutable]] [file rootname [file tail [info script]]]]
-
-# Viewport type: exactly four doubles
 snit::listtype ViewPort -type snit::double -minlen 4 -maxlen 4
-# Units enum: mm or inch
-snit::enum Units -values {inch mm}
-# SizeType: positive non-zero double
+## Viewport type: exactly four doubles
+snit::enum Units -values {
+    ## Units enum: mm or inch
+    inch
+    ## Inches
+    mm
+    ## Milimeters
+}
 snit::double SizeType -min 1.0
+## SizeType: positive non-zero double
 
 snit::type GenericStripboard {
+    ## @publicsection Generic Stripboard base class (snit type). Install an instance as a 
+    # component to create a Fritzing part for a stripboard (prototyping board).
+    #
+    # Options:
+    # @arg -units The measurment units to use. Defaults mm (milimeters). 
+    # Readonly, can be set only at creation.
+    # @arg -viewport The viewpoint pixels, as a list of four doubles: x1 y1 
+    # x2 y2, origin is upper left. The default is  {0 0 254 254}. Readonly, 
+    # can be set only at creation.        
+    # @arg -width The width of the board in -units units. Defaults to 25.4.
+    # Readonly, can be set only at creation.
+    # @arg -height The height of the board in -units units. Defaults to 25.4.
+    # Readonly, can be set only at creation.
+    # @arg -moduleid The module id. Defaults to "StripboardModuleID".
+    # Readonly, can be set only at creation.
+    # @arg -version The version. Defaults to 1.0. Readonly, can be set only 
+    # at creation.
+    # @arg -author The author. Defaults to "Robert Heller". Readonly, can be 
+    # set only at creation.
+    # @arg -title The title. Defaults to "A Random Stripboard". Readonly, can
+    # be set only at creation.
+    # @arg -label The label. Defaults to "JRandomStripboard". Readonly, can be
+    # set only at creation.
+    # @arg -taxonomy The taxonomy. Defaults to 
+    # "prototyping.perfboard.perfboard". Readonly, can be set only at creation.
+    # @arg -description The description.  Defaults to "". Readonly, can be set 
+    # only at creation.
+    # @par
+    # 
+    
     typevariable _fzpTemplate {<module moduleId="%moduleId">
         <version />
         <author />
@@ -144,21 +175,40 @@ snit::type GenericStripboard {
         <connectors ignoreTerminalPoints="true" />
         <buses />
         </module>}
+    ## @privatesection Base empty stripboard part.
     variable _fzp
+    ## Holds the fzp XML tree.
     variable _tags 
+    ## Holds the <tags>
     method AddTag {tag} {
+        ## @publicsection Add a tag.
+        # @param tag The new tag to add.
+        
         set t [SimpleDOMElement create %AUTO% -tag tag]
         $t setdata $tag
         $_tags addchild $t
     }
-    variable _properties 
+    variable _properties
+    ## @privatesection Holds the <properties>
     method AddProperty {name property} {
+        ## @publicsection Add a property
+        # @param name The name of the property.
+        # @param property The value of the property.
+        
         set p [SimpleDOMElement create %AUTO% -tag property -attributes [list name $name]]
         $p setdata $property
         $_properties addchild $p
     }
     variable _connectors
+    ## @privatesection Holds the <connectors>
     method AddConnection {cx cy r connName} {
+        ## @publicsection Add a connection
+        # Adds a <connector> to <connectors>
+        # @param cx X center of the connection circle.
+        # @param cy Y center of the connection circle.
+        # @param r  Radius of the connection circle.
+        # @param connName The name of the connection.
+        
         set connector [SimpleDOMElement create %AUTO% -tag connector \
                        -attributes [list type female name $connName id [format {connector%s} $connName]]]
         $_connectors addchild $connector
@@ -172,7 +222,13 @@ snit::type GenericStripboard {
         $bbview addchild $p
     }
     variable _buses
+    ## @privatesection Holds the <buses>
     method AddBus {connName busName} {
+        ## @publicsection Add a connector to a bus (creating a new bus if 
+        # needed).
+        # @param connName The name of connector.
+        # @param busName The name of the bus.
+        
         set member [SimpleDOMElement create %AUTO% -tag nodeMember \
                     -attributes [list connectorId [format {connector%s} $connName]]]
         foreach b [$_buses getElementsByTagName bus -depth 1] {
@@ -186,13 +242,24 @@ snit::type GenericStripboard {
         $b addchild $member
     }
     variable _module
+    ## @privatesection Holds the <module>
     typevariable _breadboardSVGTemplate {<svg xmlns="http://www.w3.org/2000/svg" >
         <g id="breadboard" />
         </svg>}
+    ## Empty breadboard SVG XML
     variable _breadboardSVGroot
+    ## Holds the breadboard SVG XML
     variable _breadboardSVG
-    variable _breadboardbreadboardGroup
+    ## Holds the breadboard <svg>
+    variable _boardOutlinePath
+    ## Holds the board outline path
+    variable _boardColor #deb675
+    ## Holds the board color.
+    variable _breadboardLayerGroup
+    ## Holds the <g id="breadboard"> tag
     method _initializeXML {} {
+        ## Initialize the XML trees.
+        
         set _fzp [ParseXML %AUTO% $_fzpTemplate]
         set _module [$_fzp getElementsByTagName module -depth 1]
         set moduleId [$_module attribute moduleId]
@@ -227,10 +294,9 @@ snit::type GenericStripboard {
             }
         }
     }
-    variable _boardOutlinePath
-    variable _boardColor #deb675
-    variable _breadboardLayerGroup
     method _initializeBoardOutlinePath {} {
+        ## Initializes the default board outline (a plain rectangle).
+        
         lassign [$self cget -viewport] x1 y1 x2 y2
         set _boardOutlinePath [format {M%g,%gL%g,%g %g,%g %g,%gz} \
                                $x1 $y1 $x2 $y1 $x2 $y2 $x1 $y2]
@@ -256,11 +322,44 @@ snit::type GenericStripboard {
     option -taxonomy -default "prototyping.perfboard.perfboard" -readonly yes
     option -description -default {} -readonly yes
     constructor {args} {
+        ## @publicsection Constructor: create a new stripboard.
+        # @param name The object name.
+        # @param ... The options:
+        # @arg -units The measurment units to use. Defaults mm (milimeters). 
+        # Readonly, can be set only at creation.
+        # @arg -viewport The viewpoint pixels, as a list of four doubles: x1 
+        # y1 x2 y2, origin is upper left. The default is  {0 0 254 254}.
+        # Readonly, can be set only at creation.        
+        # @arg -width The width of the board in -units units. Defaults to 25.4.
+        # Readonly, can be set only at creation.
+        # @arg -height The height of the board in -units units. Defaults to 
+        # 25.4. Readonly, can be set only at creation.
+        # @arg -moduleid The module id. Defaults to "StripboardModuleID".
+        # Readonly, can be set only at creation.
+        # @arg -version The version. Defaults to 1.0. Readonly, can be set 
+        # only at creation.
+        # @arg -author The author. Defaults to "Robert Heller". Readonly, can 
+        # be set only at creation.
+        # @arg -title The title. Defaults to "A Random Stripboard". Readonly, 
+        # can be set only at creation.
+        # @arg -label The label. Defaults to "JRandomStripboard". Readonly, 
+        # can be set only at creation.
+        # @arg -taxonomy The taxonomy. Defaults to 
+        # "prototyping.perfboard.perfboard". Readonly, can be set only at 
+        # creation.
+        # @arg -description The description.  Defaults to "". Readonly, can be 
+        # set only at creation.
+        # @par
+    
         $self configurelist $args
         $self _initializeXML
         $self _initializeBoardOutlinePath
     }
     method WriteFZP {filename} {
+        ## Write out the fzp files.  (Normally not called directly if a fzpz 
+        # file is to be created).
+        # @param filename The name of the file to write.
+        
         if {[catch {open $filename w} fp]} {
             error [format {Could not open %s for writing: %s} $filename $fp]
         }
@@ -269,6 +368,9 @@ snit::type GenericStripboard {
         close $fp
     }
     method WriteBBSVG {filename} {
+        ## Write out the Breaboard SVG file. (Normally not called directly if 
+        # a fzpz file is to be created).
+        # @param filename The name of the file to write.
         if {[catch {open $filename w} fp]} {
             error [format {Could not open %s for writing: %s} $filename $fp]
         }
@@ -303,10 +405,17 @@ snit::type GenericStripboard {
         close $fp
     }
     proc xmlheader {fp} {
+        ## @privatesection Write out the XML header line.
+        # @param fp The output stream to write to.
+        
         puts $fp {<?xml version="1.0" encoding="utf-8"?>}
     }
     typevariable TmpDir
+    ## @publicsection The base name of the system temp directory.
     typeconstructor {
+        ## @privatesection Typeconstructor: compute the location of the system 
+        # temp directory.
+        
         global tcl_platform
         switch $tcl_platform(platform) {
             windows {
@@ -328,11 +437,20 @@ snit::type GenericStripboard {
         }
     }
     typevariable _genindex 0
+    ## @privatesection Generator inex,
     typemethod _genname {class} {
+        ## Generate a "unique" filename.
+        # @param class Class prefix for the filename.
+        # @returns A generated filename.
         incr _genindex
         return [format {%s%05d} [string toupper $class] $_genindex]
     }
     method WriteFZPZ {filename {comment {Generic Stripboard}}} {
+        ## @publicsection Write a fzpz file (Zipf file containing a part.fpz 
+        # file and a breadboard.svg image.
+        # @param filename The name of the file to create.
+        # @param comment The comment to include in the Zip file.
+        
         set path [$type _genname FZPZ]
         set tempfile [file join $TmpDir $path]
         while {[file exists $tempfile]} {
@@ -348,6 +466,12 @@ snit::type GenericStripboard {
         file delete $tempfile
     }
     method DefineOutline {polypoints {color #deb675}} {
+        ## Define the board outline. Used for boards that are not a plain 
+        # rectangle (eg boards shaped to fit a partitylar enclosure to 
+        # something.
+        # @param polypoints A flat list of x y points defining a polygon.
+        # @param color The color of the board.
+        
         set _boardColor $color
         set path [format {M%g,%g} [lindex $polypoints 0] [lindex $polypoints 1]]
         set ch {L}
@@ -366,7 +490,18 @@ snit::type GenericStripboard {
         $outline setAttribute fill $_boardColor
     }
     variable _holes [list]
+    ## @privatesection Holds a list of holes.
     method AddHole {cx cy r {connectionId {}} {bus {}}} {
+        ## @publicsection Add a hole.  This can either be a mounting hole or
+        # a connection hole.
+        # @param cx The X center of the hole.
+        # @param cy The Y center of the hole.
+        # @param r  The radius of the hole.
+        # @param connectionId The name of the connection (null means not a 
+        # connection).
+        # @param bus The name of the bus the connection is part of (null means 
+        # not part of a bus).
+        
         lappend _holes [list $cx $cy $r $connectionId]
         if {$connectionId ne {}} {
             $self AddConnection $cx $cy $r $connectionId
@@ -376,13 +511,32 @@ snit::type GenericStripboard {
         }
     }
     method AddLine {x1 y1 x2 y2 color width {style {}}} {
+        ## Add a line.  Usually this is a copper trace for a bus.  But can be 
+        # other markings on the board.
+        # @param x1 First X coordinate.
+        # @param y1 First Y coordinate.
+        # @param x2 Second X coordinate.
+        # @param y2 Second Y coordinate.
+        # @param color The color of the line.
+        # @param width The width of the line.
+        # @param style Any additional styling.
+        
         set l [SimpleDOMElement create %AUTO% -tag line \
                -attributes [list x1 $x1 y1 $y1 x2 $x2 y2 $y2 \
                             stroke $color stroke-width $width]]
         if {$style ne {}} {$l setAttribute style $style}
         $_breadboardLayerGroup addchild $l
     }
-    method AddText {x y text {color white} {height 10} {font OCRA} {style {}}} {
+    metheod AddText {x y text {color white} {height 10} {font OCRA} {style {}}} {
+        ## Add a text element.
+        # @param x X coordinate of the text.
+        # @param y Y coordinate of the text.
+        # @param text The text itself.
+        # @param color The color of the text.
+        # @param height The height of the text.
+        # @param font The font of the text.
+        # @param style Any additional style settings.
+        
         set t [SimpleDOMElement create %AUTO% -tag text \
                -attributes [list x $x y $y stroke none fill $color \
                             font-size $height font-family $font]]
@@ -391,6 +545,8 @@ snit::type GenericStripboard {
         $_breadboardLayerGroup addchild $t
     }
     proc usage {program} {
+        ## @privatesection Display the program usage.
+        # @param program The actual program name.
         puts stderr "$program \[options...\] \[parameters...\]\n"
         puts stderr "Where options can be:"
         puts stderr "\t-help - Display a brief help (usage) text and exit."
@@ -401,6 +557,7 @@ snit::type GenericStripboard {
         exit 1
     }
     proc Copying {} {
+        ## Display the program license.
         set copyfp [open [file join [file dirname \
                                      [file dirname \
                                       [file dirname \
@@ -410,6 +567,7 @@ snit::type GenericStripboard {
         exit 1
     }
     proc Warrantry {} {
+        ## Display the program warrantry.
         set copyfp [open [file join [file dirname \
                                      [file dirname \
                                       [file dirname \
@@ -430,11 +588,16 @@ snit::type GenericStripboard {
         exit 1
     }
     proc Version {program} {
+        ## Display the program version.
+        # @param program The actual program name.
         puts stderr "This is version $Version::VERSION of [file tail $program]."
         puts stderr "Build $Version::build for target $Version::target."
         exit 1
     }
     typemethod Main {program argv} {
+        ## @publicsection The main program.
+        # @param program The actual program name.
+        # @argv Command line option and parameter list.
         set scripts [list]
         foreach arg $argv {
             switch -glob $arg {
@@ -456,10 +619,11 @@ snit::type GenericStripboard {
         }
         exit 0
     }
-    
 }
 
 snit::macro Board {comment} {
+    ## Macro helper to be used by board script files.
+    # @param comment Comment to be inserted into the FZPZ file.
     component board
     delegate option * to board
     typevariable _comment $comment
@@ -467,7 +631,5 @@ snit::macro Board {comment} {
         $board WriteFZPZ $filename $_comment
     }
 }
-
-## @}
-
+# @}
 GenericStripboard Main $::argv0 $::argv
