@@ -8,7 +8,7 @@
 #  Author        : $Author$
 #  Created By    : Robert Heller
 #  Created       : Wed Sep 25 12:03:53 2019
-#  Last Modified : <190925.1203>
+#  Last Modified : <190925.1508>
 #
 #  Description	
 #
@@ -42,8 +42,10 @@
 
 
 snit::type BPS_PR3U {
+    # Use the macro to include the component
     Board "BusBoard Prototype Systems BPS PR3U Stripboard"
     constructor {args} {
+        # Install the component, customizing the metadata.
         install board using GenericStripboard ${selfns}%AUTO% \
               -version 1.0 \
               -author "Robert Heller" \
@@ -74,19 +76,28 @@ snit::type BPS_PR3U {
             paper) to avoid warping.} \
             -units mm -width 160 -height 100 \
             -viewport {0 0 16000 10000}
+        # Mounting and board ejector holes (non-connector holes).
         $board AddHole 350 508 76.2
         $board AddHole 350 9492 76.2
         $board AddHole 15750 508 200
         $board AddHole 15750 9492 200
+        # Vertical strip at the back of the board
         for {set y 762;set r 3} {$r <= 36} {incr y 254;incr r} {
             $board AddHole 175 $y 47 ${r}A A
         }
         $board AddLine 175 762 175 [expr {$y - 254}] brown 150 "stroke-linecap:round;stroke-opacity:.5;"
+        # Now do the batches of horizontal strips
         set connCol 1
         set y 0
         for {set row 1} {$row <= 38} {incr row} {
             set x [expr {175 + 254}]
             incr y 254
+            # the first three rows and the last three rows have ten 6-hole 
+            # buses.
+            # The first two and last two have a hole missing at the back for
+            # board ejector clearence and the second and next to last are 
+            # missing a hole at the front end because of the connector mounting
+            # holes.
             if {$row <= 3 || $row >= 36} {
                 if {$row < 3 || $row > 36} {
                     incr x 254
@@ -108,6 +119,8 @@ snit::type BPS_PR3U {
                     $board AddLine $x1 $y $x2 $y brown 150 "stroke-linecap:round;stroke-opacity:.5;"
                 }
             } else {
+                # The middle 32 rows only have nine 6-hole buses, plus short 
+                # buses for the 96-pin (32x3) DIN-41612 VME connector.
                 set count 0
                 for {set b 1} {$b < 10} {incr b} {
                     set x1 $x
@@ -119,6 +132,7 @@ snit::type BPS_PR3U {
                     }
                     $board AddLine $x1 $y $x2 $y brown 150 "stroke-linecap:round;stroke-opacity:.5;"
                 }
+                # Process one column of the connector.
                 set x1 $x
                 $board AddHole $x $y 44.45 3C${connCol}A 3C$connCol
                 incr x 254
