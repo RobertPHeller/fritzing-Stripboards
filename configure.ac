@@ -1,4 +1,4 @@
-AC_INIT(GenerateStripboard,0.0.2,[support@deepsoft.com], GenerateStripboard)
+AC_INIT(GenerateStripboard,1.0.0,[support@deepsoft.com], GenerateStripboard)
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
 AC_SUBST(build)

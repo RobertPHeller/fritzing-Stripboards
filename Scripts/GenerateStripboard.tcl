@@ -8,7 +8,7 @@
 #  Author        : $Author$
 #  Created By    : Robert Heller
 #  Created       : Tue Sep 24 16:18:32 2019
-#  Last Modified : <190925.0957>
+#  Last Modified : <190925.1227>
 #
 #  Description	
 #
@@ -40,12 +40,66 @@
 #
 #*****************************************************************************
 
+##
+#
+# @mainpage Introduction
+# This program generates "stripboards", solderable prototyping boards that have
+# strips of copper foil connecting groups of holes, generally on .1 inch 
+# (2.54mm) centers.  There are many such boards, ranging from ones that are
+# pad-per-hole (no actually strips) to ones with power buses and arranged with 
+# 2 to 6 hole long strips.  Some have patterns to take connectors and/or have
+# edge connector fingers.
+#
+# This program is not a GUI program. It is purely command line and in order to
+# use it, it is needful to know some basic Tcl.  The user creates a Tcl script
+# file that defines the board and its pattern on holes and copper.
+#
+# @defgroup GenerateStripboard Generate Stripboard
+# Create Stripboard part objects for Fritzing
+#
+# @section SYNOPSIS SYNOPSIS
+#
+# GenerateStripboard [options] [scriptfiles...]
+#
+# @section DESCRIPTION DESCRIPTION
+# 
+# This program generates "stripboards", solderable prototyping boards that have
+# strips of copper foil connecting groups of holes, generally on .1 inch 
+# (2.54mm) centers.  There are many such boards, ranging from ones that are
+# pad-per-hole (no actually strips) to ones with power buses and arranged with 
+# 2 to 6 hole long strips.  Some have patterns to take connectors and/or have
+# edge connector fingers.
+#
+# This program is not a GUI program. It is purely command line and in order to
+# use it, it is needful to know some basic Tcl.  The user creates a Tcl script
+# file that defines the board and its pattern on holes and copper.
+#
+# @section OPTIONS OPTIONS
+#
+# @arg -help Display a brief help (usage) text and exit.
+# @arg -copying Display the program's license and exit.
+# @arg -warrantry Display the program's warrantry and exit.
+# @arg -version Display the program's version and exit.
+# @par
+#
+# @section PARAMETERS PARAMETERS
+#
+# One or more board script file.
+#
+# @section FritzingPartsSVGEditorAUTHOR AUTHOR
+# Robert Heller \<heller\@deepsoft.com\>
+#
+# @page BoardGenApi Board Generation API
+# @{
 
 package require snit
 package require ParseXML
 package require ZipArchive
 package require vfs::zip
 package require vfs::mk4
+package require Version
+
+set argv0 [file join [file dirname [info nameofexecutable]] [file rootname [file tail [info script]]]]
 
 # Viewport type: exactly four doubles
 snit::listtype ViewPort -type snit::double -minlen 4 -maxlen 4
@@ -336,6 +390,73 @@ snit::type GenericStripboard {
         $t setdata $text
         $_breadboardLayerGroup addchild $t
     }
+    proc usage {program} {
+        puts stderr "$program \[options...\] \[parameters...\]\n"
+        puts stderr "Where options can be:"
+        puts stderr "\t-help - Display a brief help (usage) text and exit."
+        puts stderr "\t-copying - Display the program's license and exit."
+        puts stderr "\t-warrantry - Display the program's warrantry and exit."
+        puts stderr "\t-version - Display the program's version and exit."
+        puts stderr "\nParameters are one or more Tcl script files defining boards."
+        exit 1
+    }
+    proc Copying {} {
+        set copyfp [open [file join [file dirname \
+                                     [file dirname \
+                                      [file dirname \
+                                       [info script]]]] License COPYING] r]
+        puts -nonewline stderr [read $copyfp]
+        close $copyfp
+        exit 1
+    }
+    proc Warrantry {} {
+        set copyfp [open [file join [file dirname \
+                                     [file dirname \
+                                      [file dirname \
+                                       [info script]]]] License COPYING] r]
+        while {[gets $copyfp line] >= 0} {
+            if {[regexp {15\. Disclaimer of Warranty\.} $line] > 0} {
+                break
+            }
+        }
+        puts stderr $line
+        while {[gets $copyfp line] >= 0} {
+            if {[regexp {END OF TERMS AND CONDITIONS} $line] > 0} {
+                break
+            }
+            puts stderr $line
+        }
+        close $copyfp 
+        exit 1
+    }
+    proc Version {program} {
+        puts stderr "This is version $Version::VERSION of [file tail $program]."
+        puts stderr "Build $Version::build for target $Version::target."
+        exit 1
+    }
+    typemethod Main {program argv} {
+        set scripts [list]
+        foreach arg $argv {
+            switch -glob $arg {
+                -h* {usage $program}
+                -copy* {Copying}
+                -warrantry {Warrantry}
+                -v* {Version $program}
+                -* {
+                    puts stderr "$program: unknown option: $arg\n"
+                    usage $program
+                }
+                default {
+                    lappend scripts $arg
+                }
+            }
+        }
+        foreach script $scripts {
+            source $script
+        }
+        exit 0
+    }
+    
 }
 
 snit::macro Board {comment} {
@@ -347,129 +468,6 @@ snit::macro Board {comment} {
     }
 }
 
-snit::type BPS_PR3U {
-    Board "BusBoard Prototype Systems BPS PR3U Stripboard"
-    constructor {args} {
-        install board using GenericStripboard ${selfns}%AUTO% \
-              -version 1.0 \
-              -author "Robert Heller" \
-              -title "BPS PR3U" \
-              -moduleid "BPS_PR3U" \
-              -label PR3U \
-              -description {* ProtoBoard saves time! ProtoBoard has a
-            general purpose stripboard circuit pattern
-            that is pre-cut with 6 holes per segment.
-            
-            *� 0.1" hole spacing for DIP integrated circuits
-            and headers.
-            
-            *� Standard single height (3U) Eurocard/VME
-            size. Many off the shelf enclosures and card
-            cages are available.
-            
-            *� Accepts a 96 pin DIN-41612 VME
-            connector for backplane or board-to-board
-            connections. Holes for ejector latches.
-            Rows 1 and 3 are routed to separate pads.
-            Row 2 is unconnected.
+## @}
 
-            *� ProtoBoard-3U uses a high-quality FR4
-            glass epoxy board. It has better stability and
-            moisture resistance than boards using
-            phenolic or SRBP (synthetic resin bonded
-            paper) to avoid warping.} \
-            -units mm -width 160 -height 100 \
-            -viewport {0 0 16000 10000}
-        $board AddHole 350 508 76.2
-        $board AddHole 350 9492 76.2
-        $board AddHole 15750 508 200
-        $board AddHole 15750 9492 200
-        for {set y 762;set r 3} {$r <= 36} {incr y 254;incr r} {
-            $board AddHole 175 $y 47 ${r}A A
-        }
-        $board AddLine 175 762 175 [expr {$y - 254}] brown 150 "stroke-linecap:round;stroke-opacity:.5;"
-        set connCol 1
-        set y 0
-        for {set row 1} {$row <= 38} {incr row} {
-            set x [expr {175 + 254}]
-            incr y 254
-            if {$row <= 3 || $row >= 36} {
-                if {$row < 3 || $row > 36} {
-                    incr x 254
-                    set start_i 1
-                } else {
-                    set start_i 0
-                }
-                set count 0
-                for {set b 1} {$b < 11} {incr b} {
-                    set x1 $x
-                    for {set i $start_i} {$i < 6} {incr x 254;incr i} {
-                        set col [format {%c} [expr {$b + 65}]]
-                        $board AddHole $x $y 47 ${row}${col}$i ${row}${col}
-                        incr count
-                        set x2 $x
-                        if {($row == 2 || $row == 37) && $count == 58} {break}
-                    }
-                    set start_i 0
-                    $board AddLine $x1 $y $x2 $y brown 150 "stroke-linecap:round;stroke-opacity:.5;"
-                }
-            } else {
-                set count 0
-                for {set b 1} {$b < 10} {incr b} {
-                    set x1 $x
-                    for {set i 0} {$i < 6} {incr x 254;incr i} {
-                        set col [format {%c} [expr {$b + 65}]]
-                        $board AddHole $x $y 47 ${row}${col}$i ${row}${col}
-                        incr count
-                        set x2 $x
-                    }
-                    $board AddLine $x1 $y $x2 $y brown 150 "stroke-linecap:round;stroke-opacity:.5;"
-                }
-                set x1 $x
-                $board AddHole $x $y 44.45 3C${connCol}A 3C$connCol
-                incr x 254
-                incr count
-                $board AddHole $x $y 44.45 3C${connCol}B 3C$connCol
-                set x2 $x
-                set C3_x1 $x
-                $board AddLine $x1 $y $x2 $y brown 150 "stroke-linecap:round;stroke-opacity:.5;"
-                incr x 254
-                incr count
-                set x1 $x
-                $board AddHole $x $y 44.45 1C${connCol}A 1C$connCol
-                incr x 254 
-                incr count
-                $board AddHole $x $y 44.45 1C${connCol}B 1C$connCol
-                set x2 $x
-                $board AddLine $x1 $y $x2 $y brown 150 "stroke-linecap:round;stroke-opacity:.5;"
-                incr x 254
-                incr count
-                $board AddHole $x $y 44.45 2C${connCol} 2C$connCol
-                incr x 254
-                incr count
-                $board AddHole $x $y 44.45 3C${connCol}C 3C$connCol
-                $board AddLine $x $y $x $y brown 150 "stroke-linecap:round;stroke-opacity:.5;"
-                set C3_x2 $x
-                set C3_y [expr {$y - 127}]
-                #puts stderr "*** $type create $self: C3_x1 = $C3_x1, C3_y = $C3_y, C3_x2 = $C3_x2"
-                $board AddLine $C3_x1 $C3_y $C3_x2 $C3_y brown 30 "stroke-opacity:.5;"
-                $board AddLine $C3_x1 $C3_y $C3_x1 $y brown 30 "stroke-linecap:butt;stroke-opacity:.5;"
-                $board AddLine $C3_x2 $C3_y $C3_x2 $y brown 30 "stroke-linecap:butt;stroke-opacity:.5;"
-                incr x 254
-                incr count
-                incr connCol
-            }
-            #puts stderr "*** $type create $self: row = $row, count = $count"
-        }
-    }
-}
-    
-            
-
-
-
-
-set test [BPS_PR3U create %AUTO%]
-#$test WriteFZP [$test cget -moduleid].fzp
-#$test WriteBBSVG [$test cget -label].svg
-$test WriteFZPZ [$test cget -moduleid].fzpz
+GenericStripboard Main $::argv0 $::argv

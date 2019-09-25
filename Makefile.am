@@ -8,7 +8,7 @@
 #  Author        : $Author$
 #  Created By    : Robert Heller
 #  Created       : Sun May 5 08:13:34 2019
-#  Last Modified : <190925.1012>
+#  Last Modified : <190925.1202>
 #
 #  Description	
 #
@@ -86,7 +86,7 @@ TCLKIT = $(top_builddir)/BuildData/tclkit${BEXEEXT}
 BUILT_SOURCES = $(TCLKIT)
 
 GenerateStripboard$(EXEEXT) : Scripts/GenerateStripboard.tcl \
-	$(GenerateStripboardLib) ExtraDoc/Version.tcl
+	$(GenerateStripboardLib) ExtraDoc/Version.tcl COPYING
 	-rm -rf GenerateStripboard.vfs
 	$(TCLKIT) $(top_srcdir)/BuildScripts/sdx.kit qwrap $(srcdir)/Scripts/GenerateStripboard.tcl
 	$(TCLKIT) $(top_srcdir)/BuildScripts/sdx.kit unwrap GenerateStripboard.kit
@@ -102,7 +102,7 @@ GenerateStripboard$(EXEEXT) : Scripts/GenerateStripboard.tcl \
 	$(UNZIP) -qq -d GenerateStripboard.vfs/lib \
 		$(top_srcdir)/BuildData/Tclxml3.1-GenericPureTcl.zip
 	$(TCLKIT) $(top_srcdir)/BuildScripts/AddKitFile.kit GenerateStripboard \
-		Help $(top_builddir)/html/*
+		License $(top_builddir)/COPYING
 	$(TCLKIT) $(top_srcdir)/BuildScripts/sdx.kit wrap GenerateStripboard${EXEEXT} -runtime $(top_srcdir)/BuildData/$(TCLKITRUN)
 	-rm -rf GenerateStripboard.vfs GenerateStripboard.kit
 
@@ -110,7 +110,7 @@ GenerateStripboard$(EXEEXT) : Scripts/GenerateStripboard.tcl \
 $(top_builddir)/html/index.html \
 	man1/GenerateStripboard.1 \
 	GenerateStripboard.pdf : Doxyfile Scripts/GenerateStripboard.tcl \
-		$(GenerateStripboardModules) $(wildcard ExtraDoc/*.h) \
+		$(wildcard ExtraDoc/*.h) \
 		ExtraDoc/Version.tcl BuildScripts/tcldoxyfilter.sh
 	-rm -rf man1 html latex
 	$(DOXYGEN)
