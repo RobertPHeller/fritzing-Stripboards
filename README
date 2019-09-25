@@ -1,0 +1,20 @@
+I wrote this program to avoid the extreemly tedious process of hand creating
+stripboards for use with fritzing.  Hopefully other people will find it 
+useful as well.
+ 
+It should be straight forward to build on most systems.  You need some version 
+of Tcl installed and you need tcllib installed.  The program uses TclKits so 
+it is not really dependent on the version of Tcl you have installed, but it 
+does use tcllib and generaly tcllib won't install if Tcl itself is not 
+installed.  It also uses Doxygen and LaTeX to generate the documentation.  Oh, 
+it uses autotools and make (GnuMake) as part of the build process.
+
+It is a purely command line program.  There is no GUI.  To generate a 
+stripboard, you will need to write some (simple) Tcl.  On the one hand you can 
+use loop structures to generate the bazillian holes.  On the other hand it 
+probably means some actually programming and some knowledge of Tcl.  There is 
+some "sample" code and I tried to document the API reasonably well, but please 
+let me know if there anything that is not clear.
+
+Robert Heller
+heller@deepsoft.com
