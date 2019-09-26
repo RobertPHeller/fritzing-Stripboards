@@ -8,7 +8,7 @@
 #  Author        : $Author$
 #  Created By    : Robert Heller
 #  Created       : Tue Sep 24 16:18:32 2019
-#  Last Modified : <190925.1418>
+#  Last Modified : <190925.1904>
 #
 #  Description	
 #
@@ -527,7 +527,7 @@ snit::type GenericStripboard {
         if {$style ne {}} {$l setAttribute style $style}
         $_breadboardLayerGroup addchild $l
     }
-    metheod AddText {x y text {color white} {height 10} {font OCRA} {style {}}} {
+    method AddText {x y text {color white} {height 10} {font OCRA} {style {}}} {
         ## Add a text element.
         # @param x X coordinate of the text.
         # @param y Y coordinate of the text.
