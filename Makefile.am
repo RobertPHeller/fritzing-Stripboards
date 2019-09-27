@@ -8,7 +8,7 @@
 #  Author        : $Author$
 #  Created By    : Robert Heller
 #  Created       : Sun May 5 08:13:34 2019
-#  Last Modified : <190925.1202>
+#  Last Modified : <190927.1514>
 #
 #  Description	
 #
@@ -46,7 +46,7 @@
 ACLOCAL_AMFLAGS = -I m4
 
 SUBDIRS = BuildScripts BuildData Scripts ExtraDoc
-EXTRA_DIST = README.md Doxyfile.in bootstrap
+EXTRA_DIST = Doxyfile.in bootstrap
 
 clean-local:
 	-rm -rf man html latex GenerateStripboard.pdf
