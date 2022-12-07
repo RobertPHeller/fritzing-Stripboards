@@ -8,7 +8,7 @@
 #  Author        : $Author$
 #  Created By    : Robert Heller
 #  Created       : Tue Sep 24 16:18:32 2019
-#  Last Modified : <190925.1904>
+#  Last Modified : <221205.1157>
 #
 #  Description	
 #
@@ -381,6 +381,20 @@ snit::type GenericStripboard {
             }
         }
         set boardoutlinepath $_boardOutlinePath
+        foreach p $_pads  {
+            lassign $p cx cy sx sy connName
+            set x0 [expr {$cx - ($sx/2.0)}]
+            set y0 [expr {$cy - ($sy/2.0)}]
+            set svgId [format {connector%spin} $connName]
+            set pad [SimpleDOMElement create %AUTO% -tag rect \
+                     -attributes [list id $svgId \
+                                  x [format {%g} $x0] \
+                                  y [format {%g} $y0] \
+                                  width [format {%g} $sx] \
+                                  height [format {%g} $sy] \
+                                  fill #f4a460]]
+            $_breadboardLayerGroup addchild $pad
+        }
         foreach h $_holes {
             lassign $h cx cy r connName
             set x0 [expr {$cx - $r}]
@@ -508,6 +522,25 @@ snit::type GenericStripboard {
             if {$bus ne {}} {
                 $self AddBus $connectionId $bus
             }
+        }
+    }
+    variable _pads [list]
+    method AddPad {cx cy sx sy connectionId {r 0} } {
+        ## Add a SMT pad. This is a connection pad for smd parts.  May 
+        # optionally have a hole.
+        # @param cx The X center of the pad.
+        # @param cy The Y center of the pad.
+        # @param sx The width of the pad.
+        # @param sy The hight of the pad.
+        # @param connectionId The name of the connection.
+        # @param r  The diameter of the hole (0 = no hole).
+        
+        lappend _pads [list $cx $cy $sx $sy $connectionId]
+        if {$r > 0} {
+            lappend _holes [list $cx $cy $r $connectionId]
+        }
+        if {$connectionId ne {}} {
+            $self AddConnection $cx $cy $r $connectionId
         }
     }
     method AddLine {x1 y1 x2 y2 color width {style {}}} {
